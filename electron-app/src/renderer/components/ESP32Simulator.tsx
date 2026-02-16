@@ -55,7 +55,7 @@ const ESP32Simulator: React.FC<ESP32SimulatorProps> = ({ systemStats }) => {
         minHeight: 500,
       }}
     >
-      <CircularScreen size={360}>
+      <CircularScreen size={360} onLongPress={currentPage !== 'home' ? handleBack : undefined}>
         {renderPage()}
       </CircularScreen>
     </Box>

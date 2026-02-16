@@ -53,9 +53,19 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
           top: 10,
           left: 10,
           color: '#fff',
-          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          backgroundColor: 'rgba(255, 255, 255, 0.15)',
+          backdropFilter: 'blur(10px)',
+          width: 44,
+          height: 44,
+          transition: 'all 0.3s ease',
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
+            backgroundColor: 'rgba(255, 255, 255, 0.25)',
+            transform: 'scale(1.1)',
+            boxShadow: '0 4px 12px rgba(255, 255, 255, 0.2)',
+          },
+          '&:active': {
+            transform: 'scale(0.95)',
+            backgroundColor: 'rgba(255, 255, 255, 0.3)',
           },
         }}
       >
