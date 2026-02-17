@@ -14,7 +14,23 @@ export interface WeatherSettings {
   apiKey: string;
 }
 
+export interface PhotoSettings {
+  folderPath: string;
+  slideshowInterval: number; // 秒
+  autoPlay: boolean;
+  theme: string; // 主题名称
+  maxFileSize: number; // MB
+  autoCompress: boolean; // 自动压缩
+  maxPhotoCount: number; // 最大照片数量
+}
+
+export interface AppSettings {
+  weather: WeatherSettings;
+  photo: PhotoSettings;
+}
+
 const STORAGE_KEY = 'weather_settings';
+const PHOTO_STORAGE_KEY = 'photo_settings';
 
 class SettingsService {
   /**
@@ -146,6 +162,103 @@ class SettingsService {
     }
 
     this.saveWeatherSettings(settings);
+  }
+
+  /**
+   * 获取相册设置
+   */
+  getPhotoSettings(): PhotoSettings {
+    try {
+      const stored = localStorage.getItem(PHOTO_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('读取相册设置失败:', error);
+    }
+
+    // 返回默认设置
+    return this.getDefaultPhotoSettings();
+  }
+
+  /**
+   * 保存相册设置
+   */
+  savePhotoSettings(settings: PhotoSettings): void {
+    try {
+      localStorage.setItem(PHOTO_STORAGE_KEY, JSON.stringify(settings));
+    } catch (error) {
+      console.error('保存相册设置失败:', error);
+    }
+  }
+
+  /**
+   * 获取默认相册设置
+   */
+  private getDefaultPhotoSettings(): PhotoSettings {
+    return {
+      folderPath: '/photos', // 默认相册文件夹
+      slideshowInterval: 5, // 5秒切换
+      autoPlay: true,
+      theme: 'dark-gallery', // 默认主题：暗夜美术馆
+      maxFileSize: 2, // 2MB
+      autoCompress: true, // 自动压缩
+      maxPhotoCount: 20, // 最多20张照片
+    };
+  }
+
+  /**
+   * 更新相册文件夹路径
+   */
+  updatePhotoFolder(folderPath: string): void {
+    const settings = this.getPhotoSettings();
+    settings.folderPath = folderPath;
+    this.savePhotoSettings(settings);
+  }
+
+  /**
+   * 更新幻灯片间隔
+   */
+  updateSlideshowInterval(interval: number): void {
+    const settings = this.getPhotoSettings();
+    settings.slideshowInterval = interval;
+    this.savePhotoSettings(settings);
+  }
+
+  /**
+   * 更新自动播放设置
+   */
+  updateAutoPlay(autoPlay: boolean): void {
+    const settings = this.getPhotoSettings();
+    settings.autoPlay = autoPlay;
+    this.savePhotoSettings(settings);
+  }
+
+  /**
+   * 更新相册主题
+   */
+  updatePhotoTheme(theme: string): void {
+    const settings = this.getPhotoSettings();
+    settings.theme = theme;
+    this.savePhotoSettings(settings);
+  }
+
+  /**
+   * 更新文件大小限制
+   */
+  updateMaxFileSize(maxFileSize: number): void {
+    const settings = this.getPhotoSettings();
+    settings.maxFileSize = maxFileSize;
+    this.savePhotoSettings(settings);
+  }
+
+  /**
+   * 更新自动压缩设置
+   */
+  updateAutoCompress(autoCompress: boolean): void {
+    const settings = this.getPhotoSettings();
+    settings.autoCompress = autoCompress;
+    this.savePhotoSettings(settings);
   }
 }
 

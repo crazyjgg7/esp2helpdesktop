@@ -12,10 +12,19 @@ import {
   Button,
   Divider,
   Alert,
+  Slider,
+  Switch,
+  FormControlLabel,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
 } from '@mui/material';
-import { Delete, Add, Save, Visibility, VisibilityOff } from '@mui/icons-material';
+import { Delete, Add, Save, Visibility, VisibilityOff, FolderOpen, Palette } from '@mui/icons-material';
 import { settingsService, CityConfig } from '../services/settingsService';
 import { weatherConfig } from '../config/weatherConfig';
+import { photoThemes } from '../config/photoThemes';
 
 const SettingsPanel: React.FC = () => {
   const [cities, setCities] = useState<CityConfig[]>([]);
@@ -24,10 +33,20 @@ const SettingsPanel: React.FC = () => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Photo settings
+  const [photoFolder, setPhotoFolder] = useState('');
+  const [slideshowInterval, setSlideshowInterval] = useState(5);
+  const [autoPlay, setAutoPlay] = useState(true);
+  const [photoTheme, setPhotoTheme] = useState('dark-gallery');
+  const [maxFileSize, setMaxFileSize] = useState(2);
+  const [autoCompress, setAutoCompress] = useState(true);
+  const [photoSaveSuccess, setPhotoSaveSuccess] = useState(false);
+
   // Load cities and API key
   useEffect(() => {
     loadCities();
     loadApiKey();
+    loadPhotoSettings();
   }, []);
 
   const loadCities = () => {
@@ -38,6 +57,16 @@ const SettingsPanel: React.FC = () => {
   const loadApiKey = () => {
     const settings = settingsService.getWeatherSettings();
     setApiKey(settings.apiKey || weatherConfig.apiKey);
+  };
+
+  const loadPhotoSettings = () => {
+    const settings = settingsService.getPhotoSettings();
+    setPhotoFolder(settings.folderPath);
+    setSlideshowInterval(settings.slideshowInterval);
+    setAutoPlay(settings.autoPlay);
+    setPhotoTheme(settings.theme);
+    setMaxFileSize(settings.maxFileSize);
+    setAutoCompress(settings.autoCompress);
   };
 
   const handleAddCity = () => {
@@ -57,6 +86,17 @@ const SettingsPanel: React.FC = () => {
     settingsService.updateApiKey(apiKey.trim());
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleSavePhotoSettings = () => {
+    settingsService.updatePhotoFolder(photoFolder.trim());
+    settingsService.updateSlideshowInterval(slideshowInterval);
+    settingsService.updateAutoPlay(autoPlay);
+    settingsService.updatePhotoTheme(photoTheme);
+    settingsService.updateMaxFileSize(maxFileSize);
+    settingsService.updateAutoCompress(autoCompress);
+    setPhotoSaveSuccess(true);
+    setTimeout(() => setPhotoSaveSuccess(false), 3000);
   };
 
   return (
@@ -315,6 +355,270 @@ const SettingsPanel: React.FC = () => {
             <br />
             • 等硬件到货后，可以通过 ESP32 配网页面配置城市
           </Typography>
+        </CardContent>
+      </Card>
+
+      {/* Photo Frame Settings Card */}
+      <Card
+        sx={{
+          backgroundColor: '#1e1e1e',
+          borderRadius: 2,
+          mt: 3,
+        }}
+      >
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            电子相框设置
+          </Typography>
+
+          <Typography
+            variant="body2"
+            sx={{ mb: 2, color: 'rgba(255, 255, 255, 0.7)' }}
+          >
+            配置相册文件夹路径和幻灯片播放设置。最多支持 20 张照片。
+          </Typography>
+
+          {photoSaveSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              相册设置保存成功！
+            </Alert>
+          )}
+
+          {/* Folder Path */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.9)' }}>
+              相册文件夹路径
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="/photos 或 /path/to/your/photos"
+                value={photoFolder}
+                onChange={(e) => setPhotoFolder(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    fontFamily: 'monospace',
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.3)',
+                    },
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <FolderOpen sx={{ mr: 1, color: 'rgba(255, 255, 255, 0.5)', fontSize: '1.2rem' }} />
+                  ),
+                }}
+              />
+            </Box>
+            <Typography
+              variant="caption"
+              sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block', mt: 0.5 }}
+            >
+              目前使用模拟数据，硬件到货后支持从 TF/SD 卡加载照片
+            </Typography>
+          </Box>
+
+          <Divider sx={{ mb: 3, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+
+          {/* Theme Selection */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.9)' }}>
+              视觉主题
+            </Typography>
+            <FormControl fullWidth size="small">
+              <Select
+                value={photoTheme}
+                onChange={(e) => setPhotoTheme(e.target.value)}
+                sx={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                  '&:hover .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                  },
+                  '& .MuiSvgIcon-root': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                  },
+                }}
+                startAdornment={
+                  <Palette sx={{ mr: 1, color: 'rgba(255, 255, 255, 0.5)', fontSize: '1.2rem' }} />
+                }
+              >
+                {photoThemes.map((theme) => (
+                  <MenuItem key={theme.name} value={theme.name}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography>{theme.displayName}</Typography>
+                      {theme.name === 'dark-gallery' && (
+                        <Chip label="奢华" size="small" sx={{ height: '20px', fontSize: '0.7rem' }} />
+                      )}
+                      {theme.name === 'light-gallery' && (
+                        <Chip label="清新" size="small" sx={{ height: '20px', fontSize: '0.7rem' }} />
+                      )}
+                      {theme.name === 'adaptive' && (
+                        <Chip label="智能" size="small" color="primary" sx={{ height: '20px', fontSize: '0.7rem' }} />
+                      )}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Typography
+              variant="caption"
+              sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block', mt: 0.5 }}
+            >
+              {photoTheme === 'dark-gallery' && '深色背景 + 金色点缀，博物馆级展示效果'}
+              {photoTheme === 'light-gallery' && '浅色背景 + 清爽蓝，北欧极简风格'}
+              {photoTheme === 'adaptive' && '根据照片主色调自动调整背景和文字颜色'}
+            </Typography>
+          </Box>
+
+          <Divider sx={{ mb: 3, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+
+          {/* File Size Limit */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.9)' }}>
+              文件大小限制: {maxFileSize} MB
+            </Typography>
+            <Slider
+              value={maxFileSize}
+              onChange={(_, value) => setMaxFileSize(value as number)}
+              min={1}
+              max={5}
+              step={0.5}
+              marks={[
+                { value: 1, label: '1MB' },
+                { value: 2, label: '2MB' },
+                { value: 3, label: '3MB' },
+                { value: 5, label: '5MB' },
+              ]}
+              sx={{
+                color: '#f57c00',
+                '& .MuiSlider-markLabel': {
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  fontSize: '0.7rem',
+                },
+              }}
+            />
+            <Typography
+              variant="caption"
+              sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block' }}
+            >
+              超过此大小的照片将{autoCompress ? '自动压缩' : '无法上传'}
+            </Typography>
+          </Box>
+
+          {/* Auto Compress */}
+          <Box sx={{ mb: 3 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={autoCompress}
+                  onChange={(e) => setAutoCompress(e.target.checked)}
+                  sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': {
+                      color: '#f57c00',
+                    },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                      backgroundColor: '#f57c00',
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                  自动压缩超大照片
+                </Typography>
+              }
+            />
+            <Typography
+              variant="caption"
+              sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block', ml: 4 }}
+            >
+              开启后会自动将超过限制的照片压缩到指定大小
+            </Typography>
+          </Box>
+
+          <Divider sx={{ mb: 3, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+
+          {/* Slideshow Interval */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, color: 'rgba(255, 255, 255, 0.9)' }}>
+              幻灯片切换间隔: {slideshowInterval} 秒
+            </Typography>
+            <Slider
+              value={slideshowInterval}
+              onChange={(_, value) => setSlideshowInterval(value as number)}
+              min={3}
+              max={30}
+              step={1}
+              marks={[
+                { value: 3, label: '3s' },
+                { value: 10, label: '10s' },
+                { value: 20, label: '20s' },
+                { value: 30, label: '30s' },
+              ]}
+              sx={{
+                color: '#1976d2',
+                '& .MuiSlider-markLabel': {
+                  color: 'rgba(255, 255, 255, 0.5)',
+                  fontSize: '0.7rem',
+                },
+              }}
+            />
+          </Box>
+
+          {/* Auto Play */}
+          <Box sx={{ mb: 3 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={autoPlay}
+                  onChange={(e) => setAutoPlay(e.target.checked)}
+                  sx={{
+                    '& .MuiSwitch-switchBase.Mui-checked': {
+                      color: '#1976d2',
+                    },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                      backgroundColor: '#1976d2',
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                  自动播放幻灯片
+                </Typography>
+              }
+            />
+            <Typography
+              variant="caption"
+              sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block', ml: 4 }}
+            >
+              开启后进入相框页面会自动播放幻灯片
+            </Typography>
+          </Box>
+
+          {/* Save Button */}
+          <Button
+            variant="contained"
+            startIcon={<Save />}
+            onClick={handleSavePhotoSettings}
+            fullWidth
+            sx={{
+              backgroundColor: '#2e7d32',
+              '&:hover': {
+                backgroundColor: '#1b5e20',
+              },
+            }}
+          >
+            保存相册设置
+          </Button>
         </CardContent>
       </Card>
     </Box>
