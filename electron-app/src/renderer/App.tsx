@@ -261,7 +261,7 @@ function App() {
 
           {currentTab === 1 && (
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-              <ESP32Simulator systemStats={currentStats} />
+              <ESP32Simulator />
             </Box>
           )}
 
