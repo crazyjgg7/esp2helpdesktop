@@ -229,7 +229,41 @@
 
 ## 📋 待开发功能
 
-### 阶段 3: 电子相框功能增强 - 预计 1 周
+### 阶段 3: macOS 应用启动器（快捷控制）- 预计 2-3 天
+
+#### 3.1 应用扫描和配置
+- [ ] 自动扫描 `/Applications` 文件夹
+- [ ] 获取应用列表（名称、路径、Bundle ID）
+- [ ] 自动提取应用图标（调研可行性）
+- [ ] 设置页面：应用选择和配置界面
+- [ ] 支持添加/删除应用
+- [ ] 应用列表本地存储（localStorage）
+
+#### 3.2 Apple Watch 风格界面
+- [ ] 星形分布布局（类似 Apple Watch）
+- [ ] 应用图标圆形显示
+- [ ] 拖拽查看更多应用
+- [ ] 缩放动画效果
+- [ ] 中心应用高亮显示
+- [ ] 平滑的拖拽交互
+
+#### 3.3 应用启动功能
+- [ ] 通过 Electron IPC 启动 macOS 应用
+- [ ] 点击图标启动应用
+- [ ] 启动状态反馈
+- [ ] 错误处理（应用不存在等）
+- [ ] 长按屏幕返回主页
+
+#### 3.4 后续增强（完整版）
+- [ ] 应用搜索和过滤
+- [ ] 应用分组（工作/娱乐/开发等）
+- [ ] 使用频率统计
+- [ ] 最近使用应用
+- [ ] 自定义图标上传
+
+---
+
+### 阶段 4: 电子相框功能增强 - 预计 1 周
 
 #### 3.1 照片管理功能
 - [ ] 照片收藏功能（标记喜欢的照片）
@@ -750,6 +784,623 @@ pio device monitor
    - TF 卡读取
    - 触控优化
    - 本地 AI
+
+---
+
+## ⚠️ 【重要】ESP32 硬件部署架构分析
+
+> **关键性文档 - 直接关系到项目能否成功交付**
+>
+> **创建日期**: 2026-02-17
+> **重要程度**: 🔴 极高 - 硬件到货前必读
+> **状态**: 待验证（硬件未到货）
+
+### 📋 功能可行性评估
+
+当前已开发的功能在 ESP32 硬件上的运行可行性分析：
+
+| 功能模块 | 独立运行 | macOS 依赖 | 改动程度 | 可行性 | 优先级 |
+|---------|---------|-----------|---------|--------|--------|
+| **番茄钟** | ✅ 完全可行 | ❌ 不需要 | 🟢 小 | 100% | ⭐⭐⭐ 高 |
+| **天气功能** | ✅ 可行 | ⚠️ 首次配置 | 🟢 小 | 95% | ⭐⭐⭐ 高 |
+| **电子相框** | ⚠️ 部分可行 | ✅ 照片传输 | 🟡 中 | 60% | ⭐⭐ 中 |
+| **应用启动器** | ❌ 不可行 | ✅ 完全依赖 | 🟢 小 | 100%* | ⭐⭐⭐ 高 |
+| **设置页面** | ⚠️ 简化版 | ✅ 复杂配置 | 🟡 中 | 70% | ⭐ 低 |
+
+*注：应用启动器必须连接 macOS，但通信逻辑可行
+
+---
+
+### 1️⃣ 番茄钟 - ✅ 完全可移植
+
+**当前实现**: `PomodoroPage.tsx`
+
+**代码依赖**:
+- React hooks (useState, useEffect, useRef)
+- localStorage 存储设置
+- Date.now() 计时
+- 纯前端逻辑，无外部依赖
+
+**ESP32 移植方案**:
+```cpp
+// 核心逻辑完全可用
+- React → LVGL UI 代码
+- localStorage → NVS 存储
+- Date.now() → millis()
+- 音效提示 → 蜂鸣器/扬声器
+```
+
+**结论**: 🟢 **可以直接移植，逻辑 100% 独立**
+
+---
+
+### 2️⃣ 天气功能 - ✅ 可独立运行（需网络）
+
+**当前实现**: `WeatherPage.tsx` + `weatherService.ts`
+
+**代码依赖**:
+- fetch() 调用和风天气 API
+- localStorage 缓存天气数据
+- 城市 ID 查询 API
+- API Key 配置
+
+**ESP32 移植方案**:
+```cpp
+// ESP32 可直接调用 HTTP API
+#include <HTTPClient.h>
+
+String getWeather(String cityId, String apiKey) {
+  HTTPClient http;
+  String url = "https://devapi.qweather.com/v7/weather/now?location="
+               + cityId + "&key=" + apiKey;
+  http.begin(url);
+  int httpCode = http.GET();
+  String payload = http.getString();
+  http.end();
+  return payload; // 解析 JSON
+}
+```
+
+**潜在问题**:
+- ❌ **城市 ID 查询依赖 macOS**
+  - 当前代码: `weatherService.ts` 中的 `searchCity()` 方法
+  - 问题: 首次配置城市时，需要查询城市 ID
+  - 解决方案:
+    1. macOS 端查询好城市 ID，通过 WebSocket 发送给 ESP32
+    2. ESP32 预存常用城市 ID 列表
+    3. ESP32 也可以直接调用城市查询 API（增加网络请求）
+
+**结论**: 🟢 **可以独立运行，但首次配置需要 macOS 辅助**
+
+---
+
+### 3️⃣ 电子相框 - ⚠️ 需要重大改动
+
+**当前实现**: `PhotoFramePage.tsx`
+
+**代码依赖**:
+- 模拟照片数据（Unsplash URLs）
+- localStorage 存储设置
+- 定时器切换照片
+- 手势控制（拖拽、点击）
+
+**关键问题**:
+
+#### ❌ 问题 1: 照片来源
+```typescript
+// 当前代码使用在线 URL
+const mockPhotos = [
+  'https://images.unsplash.com/photo-1...',
+];
+```
+
+**ESP32 限制**:
+- ESP32-S3 内存有限（PSRAM 最多 8MB）
+- 无法直接加载高清网络图片
+- 需要预先下载并压缩图片
+
+**解决方案**:
+1. **方案 A: 本地存储（推荐）**
+   - 照片存储在 SD 卡或 SPIFFS
+   - macOS 通过 WebSocket 传输压缩后的图片
+   - ESP32 保存到本地文件系统
+
+2. **方案 B: 实时传输**
+   - macOS 实时压缩并推送图片数据
+   - ESP32 接收后直接显示
+   - 延迟较高，不推荐
+
+#### ❌ 问题 2: 图片格式和大小
+```typescript
+// 当前代码直接使用 <img> 标签
+<img src={photo.url} />
+```
+
+**ESP32 需要**:
+- 图片格式: JPEG（推荐）或 PNG
+- 分辨率: 360x360 或更小
+- 文件大小: < 100KB（压缩后）
+- 解码: 使用 JPEG 解码库（如 TJpgDec）
+
+#### ✅ 可以保留的逻辑:
+- 幻灯片切换定时器 ✅
+- 手势控制（上一张/下一张）✅
+- 播放/暂停控制 ✅
+- 主题配置 ✅
+
+**结论**: 🟡 **核心逻辑可用，但照片加载需要完全重写**
+
+---
+
+### 4️⃣ 应用启动器 - ❌ 必须依赖 macOS
+
+**当前实现**: `AppLauncherPage.tsx` + `appLauncherService.ts`
+
+**代码依赖**:
+```typescript
+// 完全依赖 Electron IPC
+- ipcRenderer.invoke('scan-applications') // 扫描 /Applications
+- ipcRenderer.invoke('launch-app', appPath) // 启动应用
+- localStorage 存储应用列表
+```
+
+**为什么不能独立运行**:
+1. **扫描应用** - 依赖 macOS 文件系统
+   ```typescript
+   const files = await fs.readdir('/Applications')
+   ```
+
+2. **启动应用** - 依赖 macOS Shell
+   ```typescript
+   await shell.openPath(appPath)
+   ```
+
+3. **应用图标** - 依赖 macOS 应用包结构
+
+**ESP32 能做什么**:
+- ✅ 显示应用列表（从 macOS 同步）
+- ✅ 检测触摸点击
+- ✅ 发送启动命令到 macOS
+- ❌ 无法独立扫描或启动应用
+
+**通信流程**:
+```
+ESP32 用户点击应用图标
+    ↓
+ESP32 发送 WebSocket 消息
+    {
+      type: 'launch_app',
+      data: { appPath: '/Applications/Safari.app' }
+    }
+    ↓
+macOS 接收消息
+    ↓
+macOS 调用 shell.openPath()
+    ↓
+应用启动
+    ↓
+macOS 发送确认消息（可选）
+    {
+      type: 'app_launched',
+      data: { success: true }
+    }
+    ↓
+ESP32 显示启动动画/反馈
+```
+
+**结论**: 🔴 **必须连接 macOS 才能使用，ESP32 只负责 UI 和发送命令**
+
+---
+
+### 5️⃣ 设置页面 - ⚠️ 需要重新设计
+
+**当前实现**: `SettingsPanel.tsx`
+
+**问题**:
+1. **设置界面复杂**
+   - 当前使用 Material-UI，组件丰富
+   - ESP32 屏幕小（360x360），无法显示复杂表单
+   - 需要简化为基础设置项
+
+2. **输入方式受限**
+   - macOS: 键盘输入 API Key、城市名称
+   - ESP32: 只有触摸屏，输入困难
+   - 建议: 通过 macOS 配置，ESP32 只显示当前设置
+
+**建议方案**:
+- ESP32 设置页面只显示:
+  - 当前城市
+  - 当前主题
+  - WiFi 状态
+  - 连接状态
+- 复杂配置（API Key、应用列表）在 macOS 端完成
+- ESP32 通过 WebSocket 接收配置
+
+**结论**: 🟡 **需要简化，复杂配置依赖 macOS**
+
+---
+
+### 🚨 关键架构问题
+
+#### ❌ 问题 1: 设置数据未同步到 ESP32
+
+**现状**:
+- 所有设置（天气城市、API Key、相册路径、应用列表）都存储在 `localStorage`
+- 修改设置后，只保存在浏览器本地，**没有通过 WebSocket 发送到 ESP32**
+
+**影响**:
+- ESP32 无法获取用户配置的城市、应用列表等
+- 每次重启 ESP32 都需要重新配置
+
+**必须实现**:
+```typescript
+// 在 settingsService 中添加 WebSocket 同步
+class SettingsService {
+  private ws: WebSocket | null = null;
+
+  // 连接到 Electron WebSocket
+  connectToElectron() {
+    this.ws = new WebSocket('ws://localhost:8765');
+  }
+
+  // 保存设置时同步
+  saveSettings(settings: any) {
+    localStorage.setItem(KEY, JSON.stringify(settings));
+
+    // 同步到 ESP32
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'settings_update',
+        data: settings
+      }));
+    }
+  }
+}
+```
+
+---
+
+#### ❌ 问题 2: WebSocket 通信协议未定义
+
+**现状**:
+- WebSocket 服务器已运行，但只是简单的连接/断开日志
+- **没有定义消息格式和通信协议**
+
+**必须定义的协议**:
+
+```typescript
+// macOS → ESP32
+{
+  type: 'settings_update',
+  data: {
+    weather: { cities: [...], apiKey: '...' },
+    apps: [...],
+    photo: { folderPath: '...', interval: 5 }
+  }
+}
+
+{
+  type: 'weather_data',
+  data: { temp: 25, condition: '晴' }
+}
+
+{
+  type: 'launch_app_response',
+  data: { success: true, appName: 'Safari' }
+}
+
+// ESP32 → macOS
+{
+  type: 'button_press',
+  data: { button: 'crown', action: 'click' }
+}
+
+{
+  type: 'gesture',
+  data: { type: 'swipe', direction: 'left' }
+}
+
+{
+  type: 'launch_app',
+  data: { appPath: '/Applications/Safari.app' }
+}
+
+{
+  type: 'request_settings',
+  data: {}
+}
+```
+
+---
+
+#### ❌ 问题 3: ESP32 固件架构未规划
+
+**需要开发的 ESP32 组件**:
+
+1. **WiFi 管理**
+   - SmartConfig/SoftAP 配网
+   - 自动重连机制
+   - 保存 WiFi 凭证
+
+2. **WebSocket 客户端**
+   - 连接到 macOS WebSocket 服务器
+   - 断线重连
+   - 心跳保活
+
+3. **设置存储**
+   - NVS (Non-Volatile Storage) 存储配置
+   - 首次启动时请求完整设置
+   - 增量更新设置
+
+4. **UI 渲染引擎**
+   - LVGL 或自定义渲染
+   - 圆形屏幕适配
+   - 触摸手势识别
+
+5. **功能模块**
+   - 天气显示（独立 API 调用）
+   - 番茄钟（本地计时）
+   - 相册播放（本地存储）
+   - 应用启动器（发送命令到 macOS）
+
+**建议的 ESP32 固件结构**:
+```cpp
+// ESP32 主要组件
+class ESP32Controller {
+  WiFiManager wifiManager;
+  WebSocketClient wsClient;
+  SettingsManager settingsManager;
+  UIManager uiManager;
+
+  void setup() {
+    // 1. 连接 WiFi
+    wifiManager.connect();
+
+    // 2. 连接 WebSocket
+    wsClient.connect("ws://192.168.x.x:8765");
+
+    // 3. 请求设置
+    wsClient.send("{\"type\":\"request_settings\"}");
+
+    // 4. 初始化 UI
+    uiManager.init();
+  }
+
+  void loop() {
+    // 处理 WebSocket 消息
+    wsClient.handleMessages();
+
+    // 更新 UI
+    uiManager.update();
+
+    // 处理触摸事件
+    handleTouch();
+  }
+};
+```
+
+---
+
+### 🎯 建议的双模式运行架构
+
+```
+┌─────────────────────────────────────────┐
+│  ESP32 运行模式                         │
+├─────────────────────────────────────────┤
+│  1. 独立模式 (Standalone)               │
+│     - 天气（使用本地存储的 API Key）    │
+│     - 番茄钟                            │
+│     - 相册（播放本地照片）              │
+│     - 显示"未连接"状态                  │
+│                                         │
+│  2. 连接模式 (Connected)                │
+│     - 所有独立模式功能                  │
+│     + 应用启动器（通过 macOS）          │
+│     + 实时天气更新（macOS 代理）        │
+│     + 照片同步（从 macOS 传输）         │
+│     + 设置同步                          │
+└─────────────────────────────────────────┘
+```
+
+---
+
+### 📋 硬件到货前必须完成的工作
+
+#### 🔴 高优先级（阻塞性）
+
+- [ ] **定义完整的 WebSocket 通信协议**
+  - 所有消息类型
+  - 数据格式规范
+  - 错误处理机制
+
+- [ ] **实现设置同步机制**
+  - settingsService 添加 WebSocket 发送
+  - Electron 主进程广播设置到所有连接的设备
+  - 处理 ESP32 的设置请求
+
+- [ ] **处理 ESP32 发来的命令**
+  - 应用启动命令
+  - 手势事件
+  - 状态查询
+
+#### 🟡 中优先级（重要但不阻塞）
+
+- [ ] **天气数据代理（可选）**
+  - macOS 定时获取天气
+  - 推送到 ESP32
+  - ESP32 也可以直接调用 API
+
+- [ ] **照片传输功能**
+  - 压缩照片到 < 100KB
+  - 通过 WebSocket 传输
+  - ESP32 保存到 SD 卡
+
+- [ ] **离线降级逻辑**
+  - 检测 WebSocket 连接状态
+  - 显示"需要连接 macOS"提示
+  - 禁用依赖 macOS 的功能
+
+#### 🟢 低优先级（优化性）
+
+- [ ] **性能优化**
+  - 消息压缩
+  - 批量传输
+  - 缓存机制
+
+---
+
+### 📋 ESP32 固件开发检查清单
+
+#### 硬件到货后立即开发
+
+- [ ] **WiFi 配网功能**
+  - SmartConfig 或 SoftAP
+  - WiFi 凭证存储
+  - 自动重连
+
+- [ ] **WebSocket 客户端**
+  - 连接到 macOS
+  - 消息收发
+  - 断线重连
+
+- [ ] **设置存储（NVS）**
+  - 保存天气城市
+  - 保存应用列表
+  - 保存用户偏好
+
+- [ ] **UI 渲染引擎（LVGL）**
+  - 圆形屏幕适配
+  - 触摸手势识别
+  - 页面切换动画
+
+- [ ] **功能页面实现**
+  - 番茄钟（优先）
+  - 天气（优先）
+  - 应用启动器
+  - 电子相框
+
+- [ ] **离线降级逻辑**
+  - 检测连接状态
+  - 禁用依赖功能
+  - 显示提示信息
+
+---
+
+### 🧪 测试场景清单
+
+#### 必须通过的测试
+
+- [ ] **ESP32 首次启动**
+  - 配网成功
+  - 连接到 macOS WebSocket
+  - 接收完整设置
+
+- [ ] **设置同步**
+  - 修改 macOS 设置
+  - ESP32 实时更新
+  - 重启后设置保持
+
+- [ ] **应用启动器**
+  - ESP32 点击应用图标
+  - macOS 成功启动应用
+  - ESP32 显示反馈
+
+- [ ] **独立模式**
+  - ESP32 断开连接
+  - 番茄钟正常工作
+  - 天气正常显示（使用缓存）
+
+- [ ] **重新连接**
+  - ESP32 重新连接 macOS
+  - 恢复连接模式
+  - 同步最新设置
+
+- [ ] **长时间运行**
+  - 24 小时稳定性测试
+  - 内存泄漏检测
+  - 断线重连测试
+
+---
+
+### ⚠️ 关键风险点
+
+#### 🔴 高风险
+
+1. **网络延迟**
+   - 应用启动器需要 ESP32 → macOS → 启动应用
+   - 延迟可能导致用户体验不佳
+   - **缓解措施**: 添加加载动画，显示"正在启动..."
+
+2. **WebSocket 断线**
+   - WiFi 不稳定时频繁断线
+   - **缓解措施**: 实现自动重连 + 离线缓存
+
+3. **设置不同步**
+   - macOS 和 ESP32 设置可能不一致
+   - **缓解措施**: ESP32 启动时强制同步，显示版本号
+
+#### 🟡 中风险
+
+4. **屏幕性能**
+   - 360x360 圆形屏幕渲染性能
+   - **缓解措施**: 使用 LVGL + 硬件加速，优化动画
+
+5. **照片传输**
+   - 大图片传输可能超时
+   - **缓解措施**: 分块传输 + 进度显示
+
+6. **内存限制**
+   - ESP32-S3 PSRAM 只有 8MB
+   - **缓解措施**: 动态加载，及时释放
+
+---
+
+### 📊 开发优先级建议
+
+#### 第一阶段：基础功能（独立运行）
+1. ✅ 番茄钟（完全独立）
+2. ✅ 天气（需要 WiFi）
+3. ✅ 主页导航和手势
+
+#### 第二阶段：连接功能（需要 macOS）
+4. ✅ WebSocket 通信
+5. ✅ 应用启动器（发送命令）
+6. ✅ 设置同步
+
+#### 第三阶段：高级功能
+7. ✅ 电子相框（照片传输）
+8. ✅ 离线降级逻辑
+9. ✅ OTA 更新
+
+---
+
+### 📝 最终结论
+
+**从代码逻辑上看**:
+
+- **番茄钟** ✅ 可以直接移植，逻辑 100% 可用
+- **天气** ✅ 可以直接移植，只需替换 HTTP 库
+- **电子相框** ⚠️ 逻辑可用，但图片加载需要重写
+- **应用启动器** ❌ 不能独立运行，必须通过 macOS 代理
+- **设置页面** ⚠️ 需要简化，复杂配置在 macOS 完成
+
+**总结**: 大部分功能的**核心逻辑**都可以在 ESP32 上运行，但需要：
+1. UI 框架从 React 改为 LVGL
+2. 存储从 localStorage 改为 NVS
+3. 网络请求从 fetch 改为 HTTPClient
+4. 应用启动器改为 WebSocket 命令模式
+5. **最关键**: 实现完整的 WebSocket 通信协议和设置同步机制
+
+**硬件到货后建议**:
+1. 先实现番茄钟和天气，验证基础架构
+2. 再实现 WebSocket 通信和应用启动器
+3. 最后实现电子相框和高级功能
+
+**项目交付风险评估**: 🟡 **中等风险**
+- ✅ 核心功能逻辑可行
+- ⚠️ 需要补充 WebSocket 协议和设置同步
+- ⚠️ 需要开发完整的 ESP32 固件
+- ✅ 有明确的开发路线图
 
 ---
 
