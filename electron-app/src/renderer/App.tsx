@@ -89,7 +89,7 @@ function App() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('Received data:', data);
+          // console.log('Received data:', data); // 关闭日志
 
           if (data.type === 'system_info') {
             const timestamp = new Date().toLocaleTimeString('zh-CN', {

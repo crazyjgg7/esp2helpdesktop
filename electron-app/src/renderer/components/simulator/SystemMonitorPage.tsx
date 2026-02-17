@@ -1,6 +1,5 @@
-import React from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import React, { useState } from 'react';
+import { Box, Typography } from '@mui/material';
 
 interface SystemMonitorPageProps {
   cpu: number;
@@ -10,6 +9,23 @@ interface SystemMonitorPageProps {
 }
 
 const SystemMonitorPage: React.FC<SystemMonitorPageProps> = ({ cpu, memory, network, onBack }) => {
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+
+  // Handle long press for back navigation
+  const handleMouseDown = () => {
+    const timer = setTimeout(() => {
+      onBack();
+    }, 800);
+    setLongPressTimer(timer);
+  };
+
+  const handleMouseUp = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
   const CircularProgress = ({ value, label, color }: { value: number; label: string; color: string }) => {
     const radius = 45;
     const circumference = 2 * Math.PI * radius;
@@ -62,6 +78,9 @@ const SystemMonitorPage: React.FC<SystemMonitorPageProps> = ({ cpu, memory, netw
 
   return (
     <Box
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
       sx={{
         width: '100%',
         height: '100%',
@@ -72,42 +91,20 @@ const SystemMonitorPage: React.FC<SystemMonitorPageProps> = ({ cpu, memory, netw
         justifyContent: 'center',
         position: 'relative',
         padding: 2,
+        cursor: 'pointer',
+        userSelect: 'none',
       }}
     >
-      {/* Back Button */}
-      <IconButton
-        onClick={onBack}
-        sx={{
-          position: 'absolute',
-          top: 10,
-          left: 10,
-          color: '#fff',
-          backgroundColor: 'rgba(255, 255, 255, 0.15)',
-          backdropFilter: 'blur(10px)',
-          width: 44,
-          height: 44,
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-            transform: 'scale(1.1)',
-            boxShadow: '0 4px 12px rgba(255, 255, 255, 0.2)',
-          },
-          '&:active': {
-            transform: 'scale(0.95)',
-            backgroundColor: 'rgba(255, 255, 255, 0.3)',
-          },
-        }}
-      >
-        <ArrowBack />
-      </IconButton>
 
       {/* Title */}
       <Typography
         variant="h6"
         sx={{
           color: '#fff',
-          mb: 3,
+          mb: 2,
           fontWeight: 'bold',
+          position: 'absolute',
+          top: '20px',
         }}
       >
         系统监控
@@ -139,6 +136,19 @@ const SystemMonitorPage: React.FC<SystemMonitorPageProps> = ({ cpu, memory, netw
           MB/s
         </Typography>
       </Box>
+
+      {/* Long Press Hint */}
+      <Typography
+        sx={{
+          position: 'absolute',
+          bottom: '20px',
+          fontSize: '0.65rem',
+          color: 'rgba(255, 255, 255, 0.6)',
+          textAlign: 'center',
+        }}
+      >
+        长按屏幕返回
+      </Typography>
     </Box>
   );
 };

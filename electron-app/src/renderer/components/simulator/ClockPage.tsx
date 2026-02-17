@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
+import { Box, Typography } from '@mui/material';
 
 interface ClockPageProps {
   onBack: () => void;
@@ -8,6 +7,7 @@ interface ClockPageProps {
 
 const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
   const [time, setTime] = useState(new Date());
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -31,8 +31,26 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
 
   const weekday = time.toLocaleDateString('zh-CN', { weekday: 'long' });
 
+  // Handle long press for back navigation
+  const handleMouseDown = () => {
+    const timer = setTimeout(() => {
+      onBack();
+    }, 800);
+    setLongPressTimer(timer);
+  };
+
+  const handleMouseUp = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  };
+
   return (
     <Box
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
       sx={{
         width: '100%',
         height: '100%',
@@ -43,34 +61,10 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
         justifyContent: 'center',
         position: 'relative',
         padding: 2,
+        cursor: 'pointer',
+        userSelect: 'none',
       }}
     >
-      {/* Back Button */}
-      <IconButton
-        onClick={onBack}
-        sx={{
-          position: 'absolute',
-          top: 10,
-          left: 10,
-          color: '#fff',
-          backgroundColor: 'rgba(255, 255, 255, 0.15)',
-          backdropFilter: 'blur(10px)',
-          width: 44,
-          height: 44,
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.25)',
-            transform: 'scale(1.1)',
-            boxShadow: '0 4px 12px rgba(255, 255, 255, 0.2)',
-          },
-          '&:active': {
-            transform: 'scale(0.95)',
-            backgroundColor: 'rgba(255, 255, 255, 0.3)',
-          },
-        }}
-      >
-        <ArrowBack />
-      </IconButton>
 
       {/* Time Display */}
       <Typography
@@ -121,6 +115,19 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
           zIndex: 0,
         }}
       />
+
+      {/* Long Press Hint */}
+      <Typography
+        sx={{
+          position: 'absolute',
+          bottom: '20px',
+          fontSize: '0.65rem',
+          color: 'rgba(255, 255, 255, 0.6)',
+          textAlign: 'center',
+        }}
+      >
+        长按屏幕返回
+      </Typography>
     </Box>
   );
 };
