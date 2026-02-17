@@ -56,7 +56,7 @@ class SettingsService {
         { id: '3', name: '广州' },
       ],
       currentCityId: '1',
-      apiKey: '',
+      apiKey: '598a41cf8b404383a148d15a41fa0b55', // 默认 API Key
     };
   }
 
@@ -118,6 +118,15 @@ class SettingsService {
       city.locationId = locationId;
       this.saveWeatherSettings(settings);
     }
+  }
+
+  /**
+   * 更新 API Key
+   */
+  updateApiKey(apiKey: string): void {
+    const settings = this.getWeatherSettings();
+    settings.apiKey = apiKey;
+    this.saveWeatherSettings(settings);
   }
 
   /**

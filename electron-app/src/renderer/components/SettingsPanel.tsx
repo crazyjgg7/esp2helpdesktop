@@ -11,22 +11,33 @@ import {
   TextField,
   Button,
   Divider,
+  Alert,
 } from '@mui/material';
-import { Delete, Add } from '@mui/icons-material';
+import { Delete, Add, Save, Visibility, VisibilityOff } from '@mui/icons-material';
 import { settingsService, CityConfig } from '../services/settingsService';
+import { weatherConfig } from '../config/weatherConfig';
 
 const SettingsPanel: React.FC = () => {
   const [cities, setCities] = useState<CityConfig[]>([]);
   const [newCityName, setNewCityName] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Load cities
+  // Load cities and API key
   useEffect(() => {
     loadCities();
+    loadApiKey();
   }, []);
 
   const loadCities = () => {
     const settings = settingsService.getWeatherSettings();
     setCities(settings.cities);
+  };
+
+  const loadApiKey = () => {
+    const settings = settingsService.getWeatherSettings();
+    setApiKey(settings.apiKey || weatherConfig.apiKey);
   };
 
   const handleAddCity = () => {
@@ -42,6 +53,12 @@ const SettingsPanel: React.FC = () => {
     loadCities();
   };
 
+  const handleSaveApiKey = () => {
+    settingsService.updateApiKey(apiKey.trim());
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
   return (
     <Box
       sx={{
@@ -53,6 +70,99 @@ const SettingsPanel: React.FC = () => {
       <Typography variant="h5" sx={{ mb: 3, fontWeight: 600 }}>
         设置
       </Typography>
+
+      {/* API Key Settings Card */}
+      <Card
+        sx={{
+          backgroundColor: '#1e1e1e',
+          borderRadius: 2,
+          mb: 3,
+        }}
+      >
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            和风天气 API Key
+          </Typography>
+
+          <Typography
+            variant="body2"
+            sx={{ mb: 2, color: 'rgba(255, 255, 255, 0.7)' }}
+          >
+            配置你的和风天气 API Key，用于获取实时天气数据。
+          </Typography>
+
+          {saveSuccess && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              API Key 保存成功！刷新页面后生效。
+            </Alert>
+          )}
+
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              type={showApiKey ? 'text' : 'password'}
+              placeholder="输入和风天气 API Key"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                  fontFamily: 'monospace',
+                  '& fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                  },
+                },
+              }}
+              InputProps={{
+                endAdornment: (
+                  <IconButton
+                    size="small"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    sx={{ color: 'rgba(255, 255, 255, 0.5)' }}
+                  >
+                    {showApiKey ? <VisibilityOff /> : <Visibility />}
+                  </IconButton>
+                ),
+              }}
+            />
+            <Button
+              variant="contained"
+              startIcon={<Save />}
+              onClick={handleSaveApiKey}
+              disabled={!apiKey.trim()}
+              sx={{
+                minWidth: '100px',
+                backgroundColor: '#2e7d32',
+                '&:hover': {
+                  backgroundColor: '#1b5e20',
+                },
+              }}
+            >
+              保存
+            </Button>
+          </Box>
+
+          <Typography
+            variant="caption"
+            sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block' }}
+          >
+            获取 API Key：访问{' '}
+            <a
+              href="https://dev.qweather.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#1976d2' }}
+            >
+              和风天气开发平台
+            </a>{' '}
+            注册并创建应用
+          </Typography>
+        </CardContent>
+      </Card>
 
       {/* Weather Settings Card */}
       <Card
@@ -200,6 +310,8 @@ const SettingsPanel: React.FC = () => {
             • 在天气页面点击城市名称可以快速切换城市
             <br />
             • 天气数据每30分钟自动更新一次
+            <br />
+            • 天气数据会缓存2小时，减少API调用
             <br />
             • 等硬件到货后，可以通过 ESP32 配网页面配置城市
           </Typography>

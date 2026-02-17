@@ -28,11 +28,20 @@ export interface WeatherConfig {
 }
 
 class WeatherService {
-  private apiKey: string = weatherConfig.apiKey;
-  private apiHost: string = weatherConfig.apiHost;
   private lang: string = weatherConfig.lang;
   // 如果没有配置 apiHost，尝试使用免费版端点
   private useMockData: boolean = weatherConfig.useMockData;
+
+  // 动态获取 API Key（从设置中读取）
+  private getApiKey(): string {
+    const settings = settingsService.getWeatherSettings();
+    return settings.apiKey || weatherConfig.apiKey;
+  }
+
+  // 动态获取 API Host
+  private getApiHost(): string {
+    return weatherConfig.apiHost;
+  }
 
   /**
    * 配置天气服务
@@ -46,7 +55,10 @@ class WeatherService {
    * 获取城市ID（和风天气需要先查询城市ID）
    */
   async getCityId(cityName: string): Promise<string> {
-    if (!this.apiKey) {
+    const apiKey = this.getApiKey();
+    const apiHost = this.getApiHost();
+
+    if (!apiKey) {
       throw new Error('API Key 未配置');
     }
 
@@ -56,12 +68,12 @@ class WeatherService {
       let url: string;
       let headers: HeadersInit = {};
 
-      if (this.apiHost) {
-        url = `https://${this.apiHost}/v7/city/lookup?location=${encodeURIComponent(cityName)}`;
-        headers = { 'X-QW-Api-Key': this.apiKey };
+      if (apiHost) {
+        url = `https://${apiHost}/v7/city/lookup?location=${encodeURIComponent(cityName)}`;
+        headers = { 'X-QW-Api-Key': apiKey };
       } else {
         // 尝试免费版端点（使用 key 参数）
-        url = `https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(cityName)}&key=${this.apiKey}`;
+        url = `https://geoapi.qweather.com/v2/city/lookup?location=${encodeURIComponent(cityName)}&key=${apiKey}`;
       }
 
       console.log('查询城市ID:', url);
@@ -111,7 +123,10 @@ class WeatherService {
       return this.getMockWeatherData(cityName);
     }
 
-    if (!this.apiKey) {
+    const apiKey = this.getApiKey();
+    const apiHost = this.getApiHost();
+
+    if (!apiKey) {
       console.log('未配置 API Key，使用模拟数据');
       return this.getMockWeatherData(cityName);
     }
@@ -126,12 +141,12 @@ class WeatherService {
       let url: string;
       let headers: HeadersInit = {};
 
-      if (this.apiHost) {
-        url = `https://${this.apiHost}/v7/weather/now?location=${locationId}&lang=${this.lang}`;
-        headers = { 'X-QW-Api-Key': this.apiKey };
+      if (apiHost) {
+        url = `https://${apiHost}/v7/weather/now?location=${locationId}&lang=${this.lang}`;
+        headers = { 'X-QW-Api-Key': apiKey };
       } else {
         // 尝试免费版端点
-        url = `https://devapi.qweather.com/v7/weather/now?location=${locationId}&key=${this.apiKey}&lang=${this.lang}`;
+        url = `https://devapi.qweather.com/v7/weather/now?location=${locationId}&key=${apiKey}&lang=${this.lang}`;
       }
 
       console.log('获取天气:', url);
