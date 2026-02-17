@@ -1,25 +1,41 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { SystemMonitor } from './system.js'
 
+interface ClientInfo {
+  ws: WebSocket
+  type: 'control_panel' | 'esp32_device' | 'unknown'
+  deviceId?: string
+  connectedAt: number
+  lastHeartbeat: number
+}
+
 export class DeviceWebSocketServer {
   private wss: WebSocketServer
-  private clients: Set<WebSocket> = new Set()
+  private clients: Map<WebSocket, ClientInfo> = new Map()
   private systemMonitor: SystemMonitor
-  private updateInterval: NodeJS.Timeout | null = null
+  private systemBroadcastInterval: NodeJS.Timeout | null = null
+  private heartbeatMonitorInterval: NodeJS.Timeout | null = null
 
   constructor(port: number = 8765) {
     this.wss = new WebSocketServer({ port })
     this.systemMonitor = new SystemMonitor()
     this.setupServer()
+    this.startSystemBroadcast()
+    this.startHeartbeatMonitor()
   }
 
   private setupServer() {
     this.wss.on('connection', (ws: WebSocket) => {
-      console.log('ESP32 设备已连接')
-      this.clients.add(ws)
+      console.log('新客户端连接，等待握手...')
 
-      // 开始发送系统信息
-      this.startSystemInfoUpdates(ws)
+      // 初始化客户端信息（类型未知）
+      const clientInfo: ClientInfo = {
+        ws,
+        type: 'unknown',
+        connectedAt: Date.now(),
+        lastHeartbeat: Date.now()
+      }
+      this.clients.set(ws, clientInfo)
 
       ws.on('message', (data: Buffer) => {
         try {
@@ -31,8 +47,16 @@ export class DeviceWebSocketServer {
       })
 
       ws.on('close', () => {
-        console.log('ESP32 设备已断开')
-        this.clients.delete(ws)
+        const client = this.clients.get(ws)
+        if (client) {
+          if (client.type === 'esp32_device' && client.deviceId) {
+            console.log(`ESP32 设备已断开: ${client.deviceId}`)
+            this.notifyDeviceDisconnected(client.deviceId)
+          } else if (client.type === 'control_panel') {
+            console.log('控制面板已断开')
+          }
+          this.clients.delete(ws)
+        }
       })
 
       ws.on('error', (error) => {
@@ -43,40 +67,176 @@ export class DeviceWebSocketServer {
     console.log(`WebSocket 服务器运行在端口 ${this.wss.options.port}`)
   }
 
-  private async startSystemInfoUpdates(ws: WebSocket) {
-    const sendUpdate = async () => {
-      if (ws.readyState === WebSocket.OPEN) {
-        const systemInfo = await this.systemMonitor.getSystemInfo()
-        this.sendMessage(ws, {
-          type: 'system_info',
-          data: systemInfo
-        })
-      }
-    }
+  private async startSystemBroadcast() {
+    // 每 5 秒广播系统数据到所有 ESP32 设备
+    this.systemBroadcastInterval = setInterval(async () => {
+      const systemInfo = await this.systemMonitor.getSystemInfo()
 
-    // 立即发送一次
-    await sendUpdate()
+      this.broadcastToDevices({
+        type: 'system_stats',
+        data: {
+          cpu: systemInfo.cpu.usage,
+          memory: systemInfo.memory.percentage,
+          network: {
+            upload: systemInfo.network.upload,
+            download: systemInfo.network.download
+          },
+          timestamp: Date.now()
+        }
+      })
+    }, 5000)
+  }
 
-    // 每秒更新
-    const interval = setInterval(sendUpdate, 1000)
-
-    ws.on('close', () => {
-      clearInterval(interval)
-    })
+  private startHeartbeatMonitor() {
+    // 每 10 秒检查一次设备心跳
+    this.heartbeatMonitorInterval = setInterval(() => {
+      const now = Date.now()
+      this.clients.forEach((client, ws) => {
+        if (client.type === 'esp32_device' && client.deviceId) {
+          // 15 秒无心跳，标记为离线
+          if (now - client.lastHeartbeat > 15000) {
+            console.log(`设备心跳超时: ${client.deviceId}`)
+            this.notifyDeviceDisconnected(client.deviceId)
+            ws.close()
+          }
+        }
+      })
+    }, 10000)
   }
 
   private handleMessage(ws: WebSocket, message: any) {
-    console.log('收到消息:', message)
+    const client = this.clients.get(ws)
+    if (!client) return
 
-    if (message.type === 'handshake') {
+    console.log('收到消息:', message.type, message.data || '')
+
+    switch (message.type) {
+      case 'handshake':
+        this.handleHandshake(ws, client, message)
+        break
+
+      case 'heartbeat':
+        this.handleHeartbeat(ws, client, message)
+        break
+
+      default:
+        console.log('未知消息类型:', message.type)
+    }
+  }
+
+  private handleHandshake(ws: WebSocket, client: ClientInfo, message: any) {
+    const { clientType, deviceId } = message
+
+    if (clientType === 'control_panel') {
+      client.type = 'control_panel'
+      console.log('控制面板已连接')
+
       this.sendMessage(ws, {
         type: 'handshake_ack',
         data: {
-          server_version: '3.0.0',
-          update_interval: 1000
+          serverVersion: '4.0.0',
+          updateInterval: 5000,
+          clientType: 'control_panel'
         }
       })
+
+      // 发送当前所有在线设备列表
+      this.sendConnectedDevicesList(ws)
+
+    } else if (clientType === 'esp32_device') {
+      client.type = 'esp32_device'
+      client.deviceId = deviceId || `esp32-${Date.now()}`
+      client.lastHeartbeat = Date.now()
+
+      console.log(`ESP32 设备已连接: ${client.deviceId}`)
+
+      this.sendMessage(ws, {
+        type: 'handshake_ack',
+        data: {
+          serverVersion: '4.0.0',
+          updateInterval: 5000,
+          clientType: 'esp32_device',
+          deviceId: client.deviceId
+        }
+      })
+
+      // 通知所有控制面板有新设备连接
+      if (client.deviceId) {
+        this.notifyDeviceConnected(client.deviceId)
+      }
     }
+  }
+
+  private handleHeartbeat(ws: WebSocket, client: ClientInfo, message: any) {
+    if (client.type !== 'esp32_device') return
+
+    client.lastHeartbeat = Date.now()
+    const { deviceId, uptime, wifiSignal } = message.data
+
+    // 转发心跳数据到所有控制面板
+    this.broadcastToControlPanels({
+      type: 'device_heartbeat',
+      data: {
+        deviceId: deviceId || client.deviceId,
+        uptime,
+        wifiSignal,
+        timestamp: Date.now()
+      }
+    })
+  }
+
+  private sendConnectedDevicesList(ws: WebSocket) {
+    const devices: any[] = []
+    this.clients.forEach((client) => {
+      if (client.type === 'esp32_device' && client.deviceId) {
+        devices.push({
+          deviceId: client.deviceId,
+          connectedAt: client.connectedAt,
+          lastHeartbeat: client.lastHeartbeat
+        })
+      }
+    })
+
+    this.sendMessage(ws, {
+      type: 'connected_devices',
+      data: { devices }
+    })
+  }
+
+  private notifyDeviceConnected(deviceId: string) {
+    this.broadcastToControlPanels({
+      type: 'device_connected',
+      data: {
+        deviceId,
+        timestamp: Date.now()
+      }
+    })
+  }
+
+  private notifyDeviceDisconnected(deviceId: string) {
+    this.broadcastToControlPanels({
+      type: 'device_disconnected',
+      data: {
+        deviceId,
+        timestamp: Date.now()
+      }
+    })
+  }
+
+  private broadcastToDevices(message: any) {
+    this.clients.forEach((client, ws) => {
+      if (client.type === 'esp32_device') {
+        this.sendMessage(ws, message)
+      }
+    })
+  }
+
+  private broadcastToControlPanels(message: any) {
+    this.clients.forEach((client, ws) => {
+      if (client.type === 'control_panel') {
+        this.sendMessage(ws, message)
+      }
+    })
   }
 
   public sendMessage(ws: WebSocket, message: any) {
@@ -86,12 +246,18 @@ export class DeviceWebSocketServer {
   }
 
   public broadcast(message: any) {
-    this.clients.forEach(client => {
-      this.sendMessage(client, message)
+    this.clients.forEach((client, ws) => {
+      this.sendMessage(ws, message)
     })
   }
 
   public close() {
+    if (this.systemBroadcastInterval) {
+      clearInterval(this.systemBroadcastInterval)
+    }
+    if (this.heartbeatMonitorInterval) {
+      clearInterval(this.heartbeatMonitorInterval)
+    }
     this.wss.close()
   }
 }
