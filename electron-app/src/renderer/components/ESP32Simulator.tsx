@@ -5,6 +5,7 @@ import NavigationDial from './simulator/NavigationDial';
 import SystemMonitorPage from './simulator/SystemMonitorPage';
 import ClockPage from './simulator/ClockPage';
 import PomodoroPage from './simulator/PomodoroPage';
+import WeatherPage from './simulator/WeatherPage';
 
 interface ESP32SimulatorProps {
   systemStats: {
@@ -40,6 +41,8 @@ const ESP32Simulator: React.FC<ESP32SimulatorProps> = ({ systemStats }) => {
         return <ClockPage onBack={handleBack} />;
       case 'timer':
         return <PomodoroPage onBack={handleBack} />;
+      case 'weather':
+        return <WeatherPage onBack={handleBack} />;
       case 'home':
       default:
         return <NavigationDial onNavigate={handleNavigate} />;

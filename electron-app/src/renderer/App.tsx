@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Container, Box, AppBar, Toolbar, Typography, Grid, Tabs, Tab } from '@mui/material';
-import { Dashboard, Devices } from '@mui/icons-material';
+import { Dashboard, Devices, Settings } from '@mui/icons-material';
 import SystemMonitor from './components/SystemMonitor';
 import ConnectionStatus from './components/ConnectionStatus';
 import MessageLog from './components/MessageLog';
 import DeviceList from './components/DeviceList';
 import ESP32Simulator from './components/ESP32Simulator';
+import SettingsPanel from './components/SettingsPanel';
 
 const darkTheme = createTheme({
   palette: {
@@ -227,6 +228,7 @@ function App() {
           >
             <Tab label="控制中心" icon={<Dashboard />} iconPosition="start" />
             <Tab label="设备模拟器" icon={<Devices />} iconPosition="start" />
+            <Tab label="设置" icon={<Settings />} iconPosition="start" />
           </Tabs>
         </AppBar>
 
@@ -261,6 +263,10 @@ function App() {
             <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
               <ESP32Simulator systemStats={currentStats} />
             </Box>
+          )}
+
+          {currentTab === 2 && (
+            <SettingsPanel />
           )}
         </Container>
       </Box>
