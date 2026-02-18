@@ -21,7 +21,7 @@ function createWindow() {
 
   if (process.env.NODE_ENV === 'development') {
     // 尝试多个端口，因为 Vite 可能使用不同端口
-    const port = process.env.VITE_PORT || '5174'
+    const port = process.env.VITE_PORT || '5173'
     win.loadURL(`http://localhost:${port}`)
     win.webContents.openDevTools() // 打开开发者工具
   } else {

@@ -68,11 +68,11 @@ export class DeviceWebSocketServer {
   }
 
   private async startSystemBroadcast() {
-    // 每 5 秒广播系统数据到所有 ESP32 设备
+    // 每 5 秒广播系统数据到所有客户端（ESP32 设备和控制面板）
     this.systemBroadcastInterval = setInterval(async () => {
       const systemInfo = await this.systemMonitor.getSystemInfo()
 
-      this.broadcastToDevices({
+      const message = {
         type: 'system_stats',
         data: {
           cpu: systemInfo.cpu.usage,
@@ -83,7 +83,11 @@ export class DeviceWebSocketServer {
           },
           timestamp: Date.now()
         }
-      })
+      }
+
+      // 广播到所有客户端（ESP32 设备和控制面板）
+      console.log(`[广播] system_stats - CPU: ${systemInfo.cpu.usage.toFixed(1)}%, 内存: ${systemInfo.memory.percentage.toFixed(1)}%, 客户端数: ${this.clients.size}`)
+      this.broadcast(message)
     }, 5000)
   }
 

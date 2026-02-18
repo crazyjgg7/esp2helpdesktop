@@ -28,8 +28,7 @@ interface SystemData {
   timestamp: string;
   cpu: number;
   memory: number;
-  networkUpload: number;
-  networkDownload: number;
+  network: number;
 }
 
 interface LogMessage {
@@ -57,8 +56,7 @@ function App() {
   const [currentMacosStats, setCurrentMacosStats] = useState({
     cpu: 0,
     memory: 0,
-    networkUpload: 0,
-    networkDownload: 0
+    network: 0
   });
 
   // ESP32 设备数据
@@ -182,12 +180,13 @@ function App() {
       second: '2-digit'
     });
 
+    const networkTotal = ((data.network?.upload || 0) + (data.network?.download || 0)) / 1024;
+
     const newDataPoint: SystemData = {
       timestamp,
       cpu: data.cpu || 0,
       memory: data.memory || 0,
-      networkUpload: data.network?.upload || 0,
-      networkDownload: data.network?.download || 0,
+      network: networkTotal,
     };
 
     setMacosSystemData(prev => {
@@ -198,8 +197,7 @@ function App() {
     setCurrentMacosStats({
       cpu: data.cpu || 0,
       memory: data.memory || 0,
-      networkUpload: data.network?.upload || 0,
-      networkDownload: data.network?.download || 0,
+      network: networkTotal,
     });
   };
 
@@ -356,7 +354,7 @@ function App() {
                   currentStats={{
                     cpu: currentMacosStats.cpu,
                     memory: currentMacosStats.memory,
-                    network: (currentMacosStats.networkUpload + currentMacosStats.networkDownload) / 1024
+                    network: currentMacosStats.network
                   }}
                 />
               </Grid>
