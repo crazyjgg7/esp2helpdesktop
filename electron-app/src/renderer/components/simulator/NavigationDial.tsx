@@ -8,7 +8,7 @@ import {
   SmartToy,
   BarChart,
   Timer,
-  FlashOn,
+  Settings,
 } from '@mui/icons-material';
 
 interface NavigationDialProps {
@@ -28,7 +28,7 @@ const NavigationDial: React.FC<NavigationDialProps> = ({ onNavigate }) => {
     { icon: <SmartToy />, label: 'AI', page: 'ai', angle: 180 },
     { icon: <BarChart />, label: '监控', page: 'monitor', angle: 225 },
     { icon: <Timer />, label: '番茄钟', page: 'timer', angle: 270 },
-    { icon: <FlashOn />, label: '快捷', page: 'quick', angle: 315 },
+    { icon: <Settings />, label: '设置', page: 'settings', angle: 315 },
   ];
 
   const radius = 120;

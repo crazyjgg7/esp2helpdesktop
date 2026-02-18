@@ -8,6 +8,7 @@ import PomodoroPage from './simulator/PomodoroPage';
 import WeatherPage from './simulator/WeatherPage';
 import PhotoFramePage from './simulator/PhotoFramePage';
 import AppLauncherPage from './simulator/AppLauncherPage';
+import QuickSettingsPage from './simulator/QuickSettingsPage';
 
 const ESP32Simulator: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<string>('home');
@@ -168,6 +169,8 @@ const ESP32Simulator: React.FC = () => {
         return <PhotoFramePage onBack={handleBack} />;
       case 'quick':
         return <AppLauncherPage onBack={handleBack} />;
+      case 'settings':
+        return <QuickSettingsPage onBack={handleBack} />;
       case 'home':
       default:
         return <NavigationDial onNavigate={handleNavigate} />;
