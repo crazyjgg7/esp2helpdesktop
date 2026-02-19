@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { DeviceWebSocketServer } from './websocket.js'
+import { AISimulator } from './ai-simulator.js'
 import fs from 'fs/promises'
 import crypto from 'crypto'
 import WebSocket from 'ws'
@@ -14,6 +15,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 let wsServer: DeviceWebSocketServer
+let aiSimulator: AISimulator | null = null
 let mainWindow: BrowserWindow | null = null
 
 // ASR 相关变量
@@ -298,11 +300,67 @@ function setupIpcHandlers() {
   ipcMain.on('asr-stop', () => {
     stopAsrSession()
   })
+
+  // AI 模拟器控制
+  ipcMain.handle('ai-simulator-start', async () => {
+    try {
+      if (!aiSimulator) {
+        aiSimulator = new AISimulator('ws://localhost:8765')
+      }
+      aiSimulator.connect()
+      return { success: true }
+    } catch (error) {
+      console.error('[AI Simulator] 启动失败:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('ai-simulator-stop', async () => {
+    try {
+      if (aiSimulator) {
+        aiSimulator.disconnect()
+        aiSimulator = null
+      }
+      return { success: true }
+    } catch (error) {
+      console.error('[AI Simulator] 停止失败:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('ai-simulator-trigger-conversation', async (_event, userText: string, assistantText: string) => {
+    try {
+      if (aiSimulator) {
+        aiSimulator.triggerConversation(userText, assistantText)
+        return { success: true }
+      }
+      return { success: false, error: '模拟器未运行' }
+    } catch (error) {
+      console.error('[AI Simulator] 触发对话失败:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('ai-simulator-set-online', async (_event, online: boolean) => {
+    try {
+      if (aiSimulator) {
+        aiSimulator.setOnline(online)
+        return { success: true }
+      }
+      return { success: false, error: '模拟器未运行' }
+    } catch (error) {
+      console.error('[AI Simulator] 设置状态失败:', error)
+      return { success: false, error: String(error) }
+    }
+  })
 }
 
 app.on('window-all-closed', () => {
   if (wsServer) {
     wsServer.close()
+  }
+  if (aiSimulator) {
+    aiSimulator.disconnect()
   }
   if (process.platform !== 'darwin') {
     app.quit()

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, Chip, LinearProgress } from '@mui/material';
+import React, { useState, useEffect, useRef } from 'react';
+import { Box, Typography, IconButton, Chip, LinearProgress, Button } from '@mui/material';
 import {
   SmartToy,
   Wifi,
@@ -9,7 +9,11 @@ import {
   VolumeUp,
   Mic,
   ArrowBack,
+  PlayArrow,
+  Stop,
 } from '@mui/icons-material';
+
+const ipcRenderer = window.require('electron').ipcRenderer;
 
 interface AIPageProps {
   onBack: () => void;
@@ -23,6 +27,12 @@ interface AIStatus {
   lastMessage: string;
 }
 
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  timestamp: number;
+}
+
 const AIPage: React.FC<AIPageProps> = ({ onBack }) => {
   const [aiStatus, setAiStatus] = useState<AIStatus>({
     online: false,
@@ -32,31 +42,109 @@ const AIPage: React.FC<AIPageProps> = ({ onBack }) => {
     lastMessage: '',
   });
 
-  const [conversationHistory, setConversationHistory] = useState<
-    Array<{ role: 'user' | 'assistant'; text: string; timestamp: number }>
-  >([]);
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
+  const [simulatorRunning, setSimulatorRunning] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  // 模拟 AI 状态（实际应该通过 WebSocket 接收）
+  // 连接到 WebSocket 服务器
   useEffect(() => {
-    // TODO: 实际实现时，这里应该连接到 ESP32 的 WebSocket
-    // const ws = new WebSocket('ws://esp32-ip:port');
-    // ws.onmessage = (event) => {
-    //   const data = JSON.parse(event.data);
-    //   if (data.type === 'ai_status') {
-    //     setAiStatus(data.data);
-    //   }
-    // };
+    const connectWebSocket = () => {
+      console.log('[AIPage] 连接到 WebSocket...');
+      const ws = new WebSocket('ws://localhost:8765');
+      wsRef.current = ws;
 
-    // 模拟数据（开发阶段）
-    const interval = setInterval(() => {
-      setAiStatus((prev) => ({
-        ...prev,
-        uptime: prev.uptime + 1,
-      }));
-    }, 1000);
+      ws.onopen = () => {
+        console.log('[AIPage] WebSocket 已连接');
+        // 发送握手消息
+        ws.send(JSON.stringify({
+          type: 'handshake',
+          clientType: 'control_panel'
+        }));
+      };
 
-    return () => clearInterval(interval);
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('[AIPage] 收到消息:', data.type);
+
+          if (data.type === 'ai_status') {
+            setAiStatus({
+              online: data.data.online,
+              talking: data.data.talking,
+              wifiSignal: data.data.wifiSignal,
+              uptime: data.data.uptime,
+              lastMessage: data.data.lastMessage || ''
+            });
+          } else if (data.type === 'ai_conversation') {
+            const message: ConversationMessage = {
+              role: data.data.role,
+              text: data.data.text,
+              timestamp: data.data.timestamp || Date.now()
+            };
+            setConversationHistory(prev => [...prev, message]);
+
+            // 更新最后一条消息
+            if (data.data.role === 'assistant') {
+              setAiStatus(prev => ({
+                ...prev,
+                lastMessage: data.data.text
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('[AIPage] 解析消息失败:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('[AIPage] WebSocket 已断开');
+        // 5 秒后重连
+        setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('[AIPage] WebSocket 错误:', error);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
   }, []);
+
+  // 启动 AI 模拟器
+  const handleStartSimulator = async () => {
+    try {
+      const result = await ipcRenderer.invoke('ai-simulator-start');
+      if (result.success) {
+        setSimulatorRunning(true);
+        console.log('[AIPage] AI 模拟器已启动');
+      } else {
+        console.error('[AIPage] 启动模拟器失败:', result.error);
+      }
+    } catch (error) {
+      console.error('[AIPage] 启动模拟器异常:', error);
+    }
+  };
+
+  // 停止 AI 模拟器
+  const handleStopSimulator = async () => {
+    try {
+      const result = await ipcRenderer.invoke('ai-simulator-stop');
+      if (result.success) {
+        setSimulatorRunning(false);
+        console.log('[AIPage] AI 模拟器已停止');
+      } else {
+        console.error('[AIPage] 停止模拟器失败:', result.error);
+      }
+    } catch (error) {
+      console.error('[AIPage] 停止模拟器异常:', error);
+    }
+  };
 
   const formatUptime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -243,6 +331,46 @@ const AIPage: React.FC<AIPageProps> = ({ onBack }) => {
         </Typography>
         <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
           说出"你好小智"唤醒 AI 助手，然后就可以开始对话了
+        </Typography>
+      </Box>
+
+      {/* AI 模拟器控制 */}
+      <Box
+        sx={{
+          width: '90%',
+          backgroundColor: 'rgba(156, 39, 176, 0.1)',
+          borderRadius: 2,
+          padding: 1.5,
+          border: '1px solid rgba(156, 39, 176, 0.3)',
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{
+            color: '#9c27b0',
+            display: 'block',
+            marginBottom: 1,
+            fontWeight: 600,
+          }}
+        >
+          🔧 开发工具
+        </Typography>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={simulatorRunning ? <Stop /> : <PlayArrow />}
+          onClick={simulatorRunning ? handleStopSimulator : handleStartSimulator}
+          sx={{
+            backgroundColor: simulatorRunning ? '#f44336' : '#9c27b0',
+            '&:hover': {
+              backgroundColor: simulatorRunning ? '#d32f2f' : '#7b1fa2',
+            },
+          }}
+        >
+          {simulatorRunning ? '停止模拟器' : '启动模拟器'}
+        </Button>
+        <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)', display: 'block', marginTop: 1 }}>
+          {simulatorRunning ? '模拟器正在运行，会自动生成测试数据' : '启动模拟器进行开发测试'}
         </Typography>
       </Box>
 

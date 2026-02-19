@@ -123,9 +123,64 @@ export class DeviceWebSocketServer {
         this.handleHeartbeat(ws, client, message)
         break
 
+      case 'ai_status':
+        this.handleAIStatus(ws, client, message)
+        break
+
+      case 'ai_conversation':
+        this.handleAIConversation(ws, client, message)
+        break
+
+      case 'ai_config':
+        this.handleAIConfig(ws, client, message)
+        break
+
       default:
         console.log('未知消息类型:', message.type)
     }
+  }
+
+  private handleAIStatus(ws: WebSocket, client: ClientInfo, message: any) {
+    if (client.type !== 'esp32_device') return
+
+    // 转发AI状态到所有控制面板
+    this.broadcastToControlPanels({
+      type: 'ai_status',
+      data: {
+        deviceId: client.deviceId,
+        ...message.data,
+        timestamp: Date.now()
+      }
+    })
+  }
+
+  private handleAIConversation(ws: WebSocket, client: ClientInfo, message: any) {
+    if (client.type !== 'esp32_device') return
+
+    // 转发对话内容到所有控制面板
+    this.broadcastToControlPanels({
+      type: 'ai_conversation',
+      data: {
+        deviceId: client.deviceId,
+        ...message.data,
+        timestamp: Date.now()
+      }
+    })
+  }
+
+  private handleAIConfig(ws: WebSocket, client: ClientInfo, message: any) {
+    if (client.type !== 'control_panel') return
+
+    // 转发配置到指定的ESP32设备
+    const targetDeviceId = message.data.deviceId
+    this.clients.forEach((c, clientWs) => {
+      if (c.type === 'esp32_device' && c.deviceId === targetDeviceId) {
+        this.sendMessage(clientWs, {
+          type: 'ai_config',
+          data: message.data
+        })
+      }
+    })
   }
 
   private handleHandshake(ws: WebSocket, client: ClientInfo, message: any) {
