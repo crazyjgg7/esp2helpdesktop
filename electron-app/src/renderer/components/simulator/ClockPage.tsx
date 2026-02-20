@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box } from '@mui/material';
+import WatchFaceContainer from './clock/WatchFaceContainer';
+import ModeSelector from './clock/ModeSelector';
+import PlaceholderFace from './clock/faces/PlaceholderFace';
+import { useStopwatch } from '../../hooks/useStopwatch';
+import { useTimer } from '../../hooks/useTimer';
 
 interface ClockPageProps {
   onBack: () => void;
@@ -7,127 +12,107 @@ interface ClockPageProps {
 
 const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
   const [time, setTime] = useState(new Date());
-  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [currentFaceIndex, setCurrentFaceIndex] = useState(0);
+  const [currentMode, setCurrentMode] = useState<'clock' | 'stopwatch' | 'timer'>('clock');
 
+  // 计时器和倒计时 hooks
+  const stopwatch = useStopwatch();
+  const timer = useTimer({ initialDuration: 60 });
+
+  // 更新时间
   useEffect(() => {
-    const timer = setInterval(() => {
+    const interval = setInterval(() => {
       setTime(new Date());
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, []);
 
-  const timeString = time.toLocaleTimeString('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  });
+  // 临时使用 4 个占位表盘
+  const watchFaces = [
+    (props: any) => <PlaceholderFace {...props} name="表盘 1" />,
+    (props: any) => <PlaceholderFace {...props} name="表盘 2" />,
+    (props: any) => <PlaceholderFace {...props} name="表盘 3" />,
+    (props: any) => <PlaceholderFace {...props} name="表盘 4" />
+  ];
 
-  const dateString = time.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-
-  const weekday = time.toLocaleDateString('zh-CN', { weekday: 'long' });
-
-  // Handle long press for back navigation
-  const handleMouseDown = () => {
-    const timer = setTimeout(() => {
-      onBack();
-    }, 800);
-    setLongPressTimer(timer);
-  };
-
-  const handleMouseUp = () => {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      setLongPressTimer(null);
+  // 长按返回处理
+  const handleLongPress = () => {
+    // 如果计时器或倒计时正在运行，暂时直接返回（后续会添加确认对话框）
+    if (currentMode !== 'clock' && (stopwatch.isRunning || timer.isRunning)) {
+      // TODO: 显示确认对话框
+      console.log('计时器正在运行，是否确定返回？');
     }
+    onBack();
   };
 
   return (
     <Box
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
       sx={{
         width: '100%',
         height: '100%',
-        background: 'linear-gradient(135deg, #0f3460 0%, #16213e 100%)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
         position: 'relative',
-        padding: 2,
-        cursor: 'pointer',
-        userSelect: 'none',
+        overflow: 'hidden',
+        backgroundColor: '#000'
       }}
     >
-
-      {/* Time Display */}
-      <Typography
-        variant="h2"
-        sx={{
-          color: '#fff',
-          fontWeight: 'bold',
-          fontFamily: 'monospace',
-          fontSize: '3.5rem',
-          letterSpacing: '0.1em',
-          textShadow: '0 0 20px rgba(255, 255, 255, 0.3)',
-        }}
-      >
-        {timeString}
-      </Typography>
-
-      {/* Date Display */}
-      <Typography
-        variant="h6"
-        sx={{
-          color: 'rgba(255, 255, 255, 0.8)',
-          mt: 2,
-          fontWeight: 'normal',
-        }}
-      >
-        {dateString}
-      </Typography>
-
-      {/* Weekday Display */}
-      <Typography
-        variant="body1"
-        sx={{
-          color: 'rgba(255, 255, 255, 0.6)',
-          mt: 1,
-        }}
-      >
-        {weekday}
-      </Typography>
-
-      {/* Decorative Circle */}
-      <Box
-        sx={{
-          position: 'absolute',
-          width: 280,
-          height: 280,
-          borderRadius: '50%',
-          border: '2px solid rgba(255, 255, 255, 0.1)',
-          zIndex: 0,
-        }}
+      {/* 表盘容器 */}
+      <WatchFaceContainer
+        faces={watchFaces}
+        currentIndex={currentFaceIndex}
+        onIndexChange={setCurrentFaceIndex}
+        mode={currentMode}
+        time={time}
+        stopwatchTime={stopwatch.time}
+        timerRemaining={timer.remaining}
+        timerProgress={timer.progress}
+        onLongPress={handleLongPress}
       />
 
-      {/* Long Press Hint */}
-      <Typography
-        sx={{
-          position: 'absolute',
-          bottom: '20px',
-          fontSize: '0.65rem',
-          color: 'rgba(255, 255, 255, 0.6)',
-          textAlign: 'center',
-        }}
-      >
-        长按屏幕返回
-      </Typography>
+      {/* 模式切换器 */}
+      <ModeSelector
+        currentMode={currentMode}
+        onModeChange={setCurrentMode}
+      />
+
+      {/* 临时控制按钮（用于测试计时器功能） */}
+      {currentMode === 'stopwatch' && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: 1,
+            zIndex: 100
+          }}
+        >
+          <button onClick={stopwatch.start}>开始</button>
+          <button onClick={stopwatch.pause}>暂停</button>
+          <button onClick={stopwatch.reset}>重置</button>
+        </Box>
+      )}
+
+      {currentMode === 'timer' && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            gap: 1,
+            zIndex: 100
+          }}
+        >
+          <button onClick={timer.start}>开始</button>
+          <button onClick={timer.pause}>暂停</button>
+          <button onClick={timer.reset}>重置</button>
+          <button onClick={() => timer.setDuration(60)}>1分钟</button>
+          <button onClick={() => timer.setDuration(180)}>3分钟</button>
+        </Box>
+      )}
     </Box>
   );
 };
