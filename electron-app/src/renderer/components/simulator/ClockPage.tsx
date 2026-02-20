@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import WatchFaceContainer from './clock/WatchFaceContainer';
 import ModeSelector from './clock/ModeSelector';
+import StopwatchControls from './clock/modes/StopwatchControls';
+import TimerControls from './clock/modes/TimerControls';
 import MinimalistFace from './clock/faces/MinimalistFace';
 import AnalogFace from './clock/faces/AnalogFace';
 import SportFace from './clock/faces/SportFace';
@@ -20,7 +22,42 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
 
   // 计时器和倒计时 hooks
   const stopwatch = useStopwatch();
-  const timer = useTimer({ initialDuration: 60 });
+  const timer = useTimer({
+    initialDuration: 60,
+    onComplete: () => {
+      // 倒计时结束处理
+      console.log('倒计时结束！');
+      // TODO: 添加震动和闪烁效果
+    }
+  });
+
+  // 加载保存的状态
+  useEffect(() => {
+    const saved = localStorage.getItem('clockSettings');
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        if (settings.lastWatchFace !== undefined) {
+          setCurrentFaceIndex(settings.lastWatchFace);
+        }
+        if (settings.lastMode) {
+          setCurrentMode(settings.lastMode);
+        }
+      } catch (error) {
+        console.error('加载时钟设置失败:', error);
+      }
+    }
+  }, []);
+
+  // 保存状态
+  useEffect(() => {
+    const settings = {
+      lastWatchFace: currentFaceIndex,
+      lastMode: currentMode,
+      timerPresets: [60, 180, 300, 600]
+    };
+    localStorage.setItem('clockSettings', JSON.stringify(settings));
+  }, [currentFaceIndex, currentMode]);
 
   // 更新时间
   useEffect(() => {
@@ -78,43 +115,26 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
         onModeChange={setCurrentMode}
       />
 
-      {/* 临时控制按钮（用于测试计时器功能） */}
+      {/* 计时器控制按钮 */}
       {currentMode === 'stopwatch' && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: 1,
-            zIndex: 100
-          }}
-        >
-          <button onClick={stopwatch.start}>开始</button>
-          <button onClick={stopwatch.pause}>暂停</button>
-          <button onClick={stopwatch.reset}>重置</button>
-        </Box>
+        <StopwatchControls
+          isRunning={stopwatch.isRunning}
+          onStart={stopwatch.start}
+          onPause={stopwatch.pause}
+          onReset={stopwatch.reset}
+        />
       )}
 
+      {/* 倒计时控制按钮 */}
       {currentMode === 'timer' && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            gap: 1,
-            zIndex: 100
-          }}
-        >
-          <button onClick={timer.start}>开始</button>
-          <button onClick={timer.pause}>暂停</button>
-          <button onClick={timer.reset}>重置</button>
-          <button onClick={() => timer.setDuration(60)}>1分钟</button>
-          <button onClick={() => timer.setDuration(180)}>3分钟</button>
-        </Box>
+        <TimerControls
+          isRunning={timer.isRunning}
+          remaining={timer.remaining}
+          onStart={timer.start}
+          onPause={timer.pause}
+          onReset={timer.reset}
+          onSetDuration={timer.setDuration}
+        />
       )}
     </Box>
   );
