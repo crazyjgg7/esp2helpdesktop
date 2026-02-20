@@ -9,6 +9,7 @@ interface TimerControlsProps {
   onPause: () => void;
   onReset: () => void;
   onSetDuration: (seconds: number) => void;
+  onStartWithDuration: (seconds: number) => void;
 }
 
 /**
@@ -21,7 +22,8 @@ const TimerControls: React.FC<TimerControlsProps> = ({
   onStart,
   onPause,
   onReset,
-  onSetDuration
+  onSetDuration,
+  onStartWithDuration
 }) => {
   const presets = [
     { label: '1分', seconds: 60 },
@@ -52,9 +54,8 @@ const TimerControls: React.FC<TimerControlsProps> = ({
             key={preset.seconds}
             label={preset.label}
             onClick={() => {
-              onSetDuration(preset.seconds);
-              // 设置时长后自动开始倒计时
-              setTimeout(() => onStart(), 100);
+              // 使用组合函数：设置时长并立即开始
+              onStartWithDuration(preset.seconds);
             }}
             disabled={isRunning}
             sx={{

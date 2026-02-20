@@ -8,6 +8,7 @@ interface UseTimerReturn {
   pause: () => void;
   reset: () => void;
   setDuration: (seconds: number) => void;
+  startWithDuration: (seconds: number) => void;  // 设置时长并立即开始
 }
 
 interface UseTimerOptions {
@@ -26,6 +27,12 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
   const [remaining, setRemaining] = useState(initialDuration);
   const [isRunning, setIsRunning] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const onCompleteRef = useRef(onComplete);
+
+  // 更新 onComplete 引用
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   // 计算进度百分比
   const progress = duration > 0 ? ((duration - remaining) / duration) * 100 : 0;
@@ -66,6 +73,17 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
     }
   }, []);
 
+  // 设置时长并立即开始
+  const startWithDuration = useCallback((seconds: number) => {
+    setDuration(seconds);
+    setRemaining(seconds);
+    setIsRunning(true);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
+
   // 倒计时循环
   useEffect(() => {
     if (isRunning) {
@@ -78,8 +96,8 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
               clearInterval(intervalRef.current);
               intervalRef.current = null;
             }
-            if (onComplete) {
-              onComplete();
+            if (onCompleteRef.current) {
+              onCompleteRef.current();
             }
             return 0;
           }
@@ -94,7 +112,7 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
         intervalRef.current = null;
       }
     };
-  }, [isRunning, onComplete]);
+  }, [isRunning]);
 
   return {
     remaining,
@@ -103,6 +121,7 @@ export const useTimer = (options: UseTimerOptions = {}): UseTimerReturn => {
     start,
     pause,
     reset,
-    setDuration: setDurationCallback
+    setDuration: setDurationCallback,
+    startWithDuration
   };
 };

@@ -134,6 +134,7 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
           onPause={timer.pause}
           onReset={timer.reset}
           onSetDuration={timer.setDuration}
+          onStartWithDuration={timer.startWithDuration}
         />
       )}
     </Box>
