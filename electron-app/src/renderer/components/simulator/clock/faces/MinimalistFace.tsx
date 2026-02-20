@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { WatchFaceProps } from '../WatchFaceContainer';
 import { flipNumberAnimation, breatheAnimation } from '../animations/flipNumber';
@@ -7,7 +7,7 @@ import { flipNumberAnimation, breatheAnimation } from '../animations/flipNumber'
  * 极简数字表盘
  * 纯白色背景，黑色超大数字
  */
-const MinimalistFace: React.FC<WatchFaceProps> = ({
+const MinimalistFace: React.FC<WatchFaceProps> = React.memo(({
   mode,
   time,
   stopwatchTime,
@@ -165,6 +165,8 @@ const MinimalistFace: React.FC<WatchFaceProps> = ({
       />
     </Box>
   );
-};
+});
+
+MinimalistFace.displayName = 'MinimalistFace';
 
 export default MinimalistFace;

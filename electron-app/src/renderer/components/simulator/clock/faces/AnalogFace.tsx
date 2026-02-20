@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Box } from '@mui/material';
 import { WatchFaceProps } from '../WatchFaceContainer';
 import { calculateAngles, calculateStopwatchAngles } from '../animations/analogClock';
@@ -7,27 +7,26 @@ import { calculateAngles, calculateStopwatchAngles } from '../animations/analogC
  * 模拟指针表盘
  * 传统圆形时钟，带时针、分针、秒针
  */
-const AnalogFace: React.FC<WatchFaceProps> = ({
+const AnalogFace: React.FC<WatchFaceProps> = React.memo(({
   mode,
   time,
   stopwatchTime,
   timerRemaining,
   timerProgress
 }) => {
-  // 计算指针角度
-  const getAngles = () => {
+  // 计算指针角度（使用 useMemo 避免重复计算）
+  const angles = useMemo(() => {
     if (mode === 'stopwatch' && stopwatchTime !== undefined) {
       return calculateStopwatchAngles(stopwatchTime);
     } else if (mode === 'timer' && timerRemaining !== undefined) {
-      // 倒计时模式：只显示一个进度指针
       const angle = timerProgress ? (timerProgress / 100) * 360 : 0;
       return { secondAngle: angle, minuteAngle: angle, hourAngle: angle };
     } else {
       return calculateAngles(time);
     }
-  };
+  }, [mode, time, stopwatchTime, timerRemaining, timerProgress]);
 
-  const { secondAngle, minuteAngle, hourAngle } = getAngles();
+  const { secondAngle, minuteAngle, hourAngle } = angles;
 
   // 刻度点
   const hourMarks = Array.from({ length: 12 }, (_, i) => i);
@@ -199,6 +198,8 @@ const AnalogFace: React.FC<WatchFaceProps> = ({
       </Box>
     </Box>
   );
-};
+});
+
+AnalogFace.displayName = 'AnalogFace';
 
 export default AnalogFace;

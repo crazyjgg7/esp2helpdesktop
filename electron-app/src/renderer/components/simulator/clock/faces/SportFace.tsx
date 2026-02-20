@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Favorite, DirectionsWalk } from '@mui/icons-material';
 import { WatchFaceProps } from '../WatchFaceContainer';
@@ -8,22 +8,22 @@ import { calculateCircleProgress, generateMockActivityData } from '../animations
  * 运动风格表盘
  * 黑色背景，橙色主题，带圆环进度条
  */
-const SportFace: React.FC<WatchFaceProps> = ({
+const SportFace: React.FC<WatchFaceProps> = React.memo(({
   mode,
   time,
   stopwatchTime,
   timerRemaining,
   timerProgress
 }) => {
-  const [activityData, setActivityData] = useState(generateMockActivityData(time));
+  const [activityData, setActivityData] = useState(() => generateMockActivityData(time));
 
   // 更新模拟数据
   useEffect(() => {
     setActivityData(generateMockActivityData(time));
   }, [time]);
 
-  // 格式化时间显示
-  const getTimeDisplay = () => {
+  // 格式化时间显示（使用 useMemo 优化）
+  const timeDisplay = useMemo(() => {
     if (mode === 'stopwatch' && stopwatchTime !== undefined) {
       const totalSeconds = Math.floor(stopwatchTime / 1000);
       const minutes = Math.floor(totalSeconds / 60);
@@ -39,7 +39,7 @@ const SportFace: React.FC<WatchFaceProps> = ({
         minute: '2-digit'
       });
     }
-  };
+  }, [mode, time, stopwatchTime, timerRemaining]);
 
   // 圆环配置
   const rings = [
@@ -126,7 +126,7 @@ const SportFace: React.FC<WatchFaceProps> = ({
           transition: 'color 0.3s ease'
         }}
       >
-        {getTimeDisplay()}
+        {timeDisplay}
       </Typography>
 
       {/* 日期显示（仅时钟模式） */}
@@ -253,6 +253,8 @@ const SportFace: React.FC<WatchFaceProps> = ({
       )}
     </Box>
   );
-};
+});
+
+SportFace.displayName = 'SportFace';
 
 export default SportFace;

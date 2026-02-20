@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Box, Typography } from '@mui/material';
 import { WatchFaceProps } from '../WatchFaceContainer';
 import {
@@ -12,7 +12,7 @@ import {
  * 像素风格表盘
  * 复古游戏机风格，绿色像素字体
  */
-const PixelFace: React.FC<WatchFaceProps> = ({
+const PixelFace: React.FC<WatchFaceProps> = React.memo(({
   mode,
   time,
   stopwatchTime,
@@ -229,6 +229,8 @@ const PixelFace: React.FC<WatchFaceProps> = ({
       />
     </Box>
   );
-};
+});
+
+PixelFace.displayName = 'PixelFace';
 
 export default PixelFace;
