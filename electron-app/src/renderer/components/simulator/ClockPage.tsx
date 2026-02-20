@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Box } from '@mui/material';
 import WatchFaceContainer from './clock/WatchFaceContainer';
 import ModeSelector from './clock/ModeSelector';
-import PlaceholderFace from './clock/faces/PlaceholderFace';
+import MinimalistFace from './clock/faces/MinimalistFace';
+import AnalogFace from './clock/faces/AnalogFace';
+import SportFace from './clock/faces/SportFace';
+import PixelFace from './clock/faces/PixelFace';
 import { useStopwatch } from '../../hooks/useStopwatch';
 import { useTimer } from '../../hooks/useTimer';
 
@@ -28,12 +31,12 @@ const ClockPage: React.FC<ClockPageProps> = ({ onBack }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // 临时使用 4 个占位表盘
+  // 4 个真实表盘
   const watchFaces = [
-    (props: any) => <PlaceholderFace {...props} name="表盘 1" />,
-    (props: any) => <PlaceholderFace {...props} name="表盘 2" />,
-    (props: any) => <PlaceholderFace {...props} name="表盘 3" />,
-    (props: any) => <PlaceholderFace {...props} name="表盘 4" />
+    MinimalistFace,  // 极简数字表盘
+    AnalogFace,      // 模拟指针表盘
+    SportFace,       // 运动风格表盘
+    PixelFace        // 像素风格表盘
   ];
 
   // 长按返回处理
